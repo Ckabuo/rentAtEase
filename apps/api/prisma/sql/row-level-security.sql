@@ -1,0 +1,9 @@
+-- Second line of defence for tenant isolation.
+-- Not applied yet. The API must set `app.account_id` on each transaction
+-- before these policies can be turned on, or every query will return no rows.
+--
+-- Example, once the data-access layer sets the account id:
+--
+-- ALTER TABLE "Property" ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY property_account_isolation ON "Property"
+--   USING ("accountId" = current_setting('app.account_id', true));

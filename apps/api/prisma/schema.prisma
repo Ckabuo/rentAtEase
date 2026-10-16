@@ -1,0 +1,606 @@
+// Rent@Ease core data model.
+// Money is whole kobo (Int). Calendar dates use @db.Date in Africa/Lagos.
+// Every account-owned row carries accountId. Financial rows are not hard-deleted.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AccountRole {
+  OWNER
+  CARETAKER
+}
+
+enum OtpChannel {
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum RentCycle {
+  ANNUAL
+  BI_ANNUAL
+  MONTHLY
+}
+
+enum UnitType {
+  FLAT
+  SELF_CONTAIN
+  SHOP_OFFICE
+  WAREHOUSE
+  OTHER
+}
+
+enum UnitStatus {
+  VACANT
+  OCCUPIED
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  INFO_REQUESTED
+  APPROVED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum ApplicationDecision {
+  APPROVE
+  REQUEST_INFORMATION
+  DECLINE
+}
+
+enum Recommendation {
+  APPROVE
+  REVIEW
+  DECLINE
+}
+
+enum ReferenceStanding {
+  VERIFIED_GOOD_STANDING
+  PROVIDED
+  FIRST_TIME_RENTER
+  NONE
+}
+
+enum DocumentKind {
+  ID
+  PROOF_OF_INCOME
+}
+
+enum ConsentSubject {
+  APPLICANT
+  GUARANTOR
+  NEXT_OF_KIN
+  TENANT_WHATSAPP
+}
+
+enum ChargeKind {
+  CYCLE
+  ONE_OFF
+}
+
+enum ChargeStatus {
+  UNPAID
+  PART_PAID
+  PAID
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  POS
+  CHEQUE
+  OTHER
+}
+
+enum PaymentCategory {
+  RENT
+  CAUTION_DEPOSIT
+  AGENCY_FEE
+  LEGAL_FEE
+  SERVICE_CHARGE
+  OTHER
+}
+
+enum ReceiptStatus {
+  ISSUED
+  VOID
+}
+
+enum MessageChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum PlanCode {
+  STARTER
+  STANDARD
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+}
+
+model Account {
+  id           String    @id @default(cuid())
+  name         String
+  onboarding   Json?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships   Membership[]
+  sessions      Session[]
+  invitations   Invitation[]
+  properties    Property[]
+  units         Unit[]
+  rentRates     RentRate[]
+  applicants    Applicant[]
+  applications  Application[]
+  consents      ConsentRecord[]
+  documents     Document[]
+  tenants       Tenant[]
+  tenancies     Tenancy[]
+  charges       Charge[]
+  payments      Payment[]
+  allocations   Allocation[]
+  receipts      Receipt[]
+  messages      Message[]
+  auditLogs     AuditLog[]
+  subscription  Subscription?
+}
+
+model User {
+  id               String   @id @default(cuid())
+  name             String
+  phone            String?  @unique
+  email            String?  @unique
+  isPlatformAdmin  Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  memberships       Membership[]
+  sessions          Session[]
+  recordedPayments  Payment[]
+  subscriptionsActivated Subscription[] @relation("SubscriptionActivatedBy")
+}
+
+model Membership {
+  id        String      @id @default(cuid())
+  accountId String
+  userId    String
+  role      AccountRole
+  createdAt DateTime    @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([accountId, userId])
+  @@index([accountId])
+  @@index([userId])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  activeAccountId  String?
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  userAgent        String?
+  createdAt        DateTime  @default(now())
+
+  user          User     @relation(fields: [userId], references: [id])
+  activeAccount Account? @relation(fields: [activeAccountId], references: [id])
+
+  @@index([userId])
+  @@index([activeAccountId])
+}
+
+model SignInCode {
+  id           String     @id @default(cuid())
+  channel      OtpChannel
+  destination  String
+  codeHash     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int        @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@index([destination, createdAt])
+}
+
+model Invitation {
+  id         String      @id @default(cuid())
+  accountId  String
+  phone      String?
+  email      String?
+  role       AccountRole
+  tokenHash  String      @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@index([accountId, phone])
+}
+
+model Property {
+  id          String    @id @default(cuid())
+  accountId   String
+  name        String
+  addressLine String
+  city        String
+  state       String
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id])
+  units   Unit[]
+
+  @@index([accountId])
+}
+
+model Unit {
+  id         String     @id @default(cuid())
+  accountId  String
+  propertyId String
+  label      String
+  type       UnitType
+  status     UnitStatus @default(VACANT)
+  deletedAt  DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  account      Account       @relation(fields: [accountId], references: [id])
+  property     Property      @relation(fields: [propertyId], references: [id])
+  rentRates    RentRate[]
+  applications Application[]
+  tenancies    Tenancy[]
+
+  @@unique([propertyId, label])
+  @@index([accountId])
+}
+
+model RentRate {
+  id            String    @id @default(cuid())
+  accountId     String
+  unitId        String
+  amountKobo    Int
+  cycle         RentCycle
+  effectiveFrom DateTime  @db.Date
+  createdAt     DateTime  @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+  unit    Unit    @relation(fields: [unitId], references: [id])
+
+  @@unique([unitId, effectiveFrom])
+  @@index([accountId])
+}
+
+model Applicant {
+  id        String   @id @default(cuid())
+  accountId String
+  fullName  String
+  phone     String
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account      Account       @relation(fields: [accountId], references: [id])
+  applications Application[]
+
+  @@index([accountId])
+}
+
+model Application {
+  id                    String               @id @default(cuid())
+  accountId             String
+  applicantId           String
+  unitId                String
+  status                ApplicationStatus    @default(SUBMITTED)
+  employmentStatus      String
+  yearsInCurrentJob     Int?
+  monthlyIncomeKobo     Int
+  incomeSource          String
+  affordableRentKobo    Int
+  rentCycle             RentCycle
+  guarantorName         String?
+  guarantorPhone        String?
+  guarantorWillSign     Boolean              @default(false)
+  guarantorEmployment   String?
+  nextOfKinName         String?
+  nextOfKinPhone        String?
+  idType                String?
+  idNumberCiphertext    String?
+  idNumberBlindIndex    String?
+  reference             ReferenceStanding
+  score                 Int?
+  scoreBreakdown        Json?
+  rubricVersion         String?
+  recommendation        Recommendation?
+  decision              ApplicationDecision?
+  decisionNote          String?
+  decidedAt             DateTime?
+  tenantId              String?
+  tenancyId             String?
+  purgeAfter            DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  account   Account        @relation(fields: [accountId], references: [id])
+  applicant Applicant      @relation(fields: [applicantId], references: [id])
+  unit      Unit           @relation(fields: [unitId], references: [id])
+  tenant    Tenant?        @relation(fields: [tenantId], references: [id])
+  tenancy   Tenancy?       @relation(fields: [tenancyId], references: [id])
+  consents  ConsentRecord[]
+  documents Document[]
+
+  @@index([accountId])
+  @@index([accountId, idNumberBlindIndex])
+  @@index([unitId])
+}
+
+model ConsentRecord {
+  id            String         @id @default(cuid())
+  accountId     String
+  applicationId String?
+  tenancyId     String?
+  subject       ConsentSubject
+  noticeVersion String
+  acceptedAt    DateTime       @default(now())
+
+  account     Account      @relation(fields: [accountId], references: [id])
+  application Application? @relation(fields: [applicationId], references: [id])
+  tenancy     Tenancy?     @relation(fields: [tenancyId], references: [id])
+
+  @@index([accountId])
+}
+
+model Document {
+  id            String       @id @default(cuid())
+  accountId     String
+  applicationId String
+  kind          DocumentKind
+  storageKey    String
+  contentType   String
+  sizeBytes     Int
+  sha256        String
+  createdAt     DateTime     @default(now())
+
+  account     Account     @relation(fields: [accountId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@index([accountId])
+  @@index([applicationId])
+}
+
+model Tenant {
+  id                 String    @id @default(cuid())
+  accountId          String
+  fullName           String
+  phone              String
+  email              String?
+  whatsappConsent    Boolean   @default(false)
+  whatsappOptedOutAt DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  account      Account       @relation(fields: [accountId], references: [id])
+  tenancies    Tenancy[]
+  applications Application[]
+
+  @@index([accountId])
+}
+
+model Tenancy {
+  id                  String    @id @default(cuid())
+  accountId           String
+  tenantId            String
+  unitId              String
+  startDate           DateTime  @db.Date
+  endDate             DateTime? @db.Date
+  cycle               RentCycle
+  rentAmountKobo      Int
+  paidThrough         DateTime? @db.Date
+  openingArrearsKobo  Int       @default(0)
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  account      Account         @relation(fields: [accountId], references: [id])
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  unit         Unit            @relation(fields: [unitId], references: [id])
+  charges      Charge[]
+  payments     Payment[]
+  applications Application[]
+  consents     ConsentRecord[]
+
+  @@index([accountId])
+  @@index([tenantId])
+  @@index([unitId])
+}
+
+model Charge {
+  id          String       @id @default(cuid())
+  accountId   String
+  tenancyId   String
+  kind        ChargeKind
+  category    PaymentCategory @default(RENT)
+  periodStart DateTime?    @db.Date
+  periodEnd   DateTime?    @db.Date
+  dueDate     DateTime     @db.Date
+  amountKobo  Int
+  status      ChargeStatus @default(UNPAID)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  account     Account      @relation(fields: [accountId], references: [id])
+  tenancy     Tenancy      @relation(fields: [tenancyId], references: [id])
+  allocations Allocation[]
+
+  @@index([accountId])
+  @@index([tenancyId, dueDate])
+}
+
+model Payment {
+  id               String          @id @default(cuid())
+  accountId        String
+  tenancyId        String
+  amountKobo       Int
+  paidOn           DateTime        @db.Date
+  method           PaymentMethod
+  category         PaymentCategory
+  recordedByUserId String
+  idempotencyKey   String
+  note             String?
+  createdAt        DateTime        @default(now())
+
+  account    Account      @relation(fields: [accountId], references: [id])
+  tenancy    Tenancy      @relation(fields: [tenancyId], references: [id])
+  recordedBy User         @relation(fields: [recordedByUserId], references: [id])
+  allocations Allocation[]
+  receipts   Receipt[]
+
+  @@unique([accountId, idempotencyKey])
+  @@index([accountId])
+  @@index([tenancyId, paidOn])
+}
+
+model Allocation {
+  id         String   @id @default(cuid())
+  accountId  String
+  paymentId  String
+  chargeId   String
+  amountKobo Int
+  createdAt  DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+  payment Payment @relation(fields: [paymentId], references: [id])
+  charge  Charge  @relation(fields: [chargeId], references: [id])
+
+  @@unique([paymentId, chargeId])
+  @@index([accountId])
+  @@index([chargeId])
+}
+
+model Receipt {
+  id                String        @id @default(cuid())
+  accountId         String
+  paymentId         String
+  number            String        @unique
+  status            ReceiptStatus
+  storageKey        String
+  sha256            String
+  voidedAt          DateTime?
+  voidReason        String?
+  replacesReceiptId String?       @unique
+  createdAt         DateTime      @default(now())
+
+  account         Account  @relation(fields: [accountId], references: [id])
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+  replacesReceipt Receipt? @relation("ReceiptReplacement", fields: [replacesReceiptId], references: [id])
+  replacedBy      Receipt? @relation("ReceiptReplacement")
+
+  @@index([accountId])
+  @@index([paymentId])
+}
+
+model MessageTemplate {
+  id           String         @id @default(cuid())
+  key          String         @unique
+  channel      MessageChannel
+  externalName String
+  category     String
+  createdAt    DateTime       @default(now())
+
+  messages Message[]
+}
+
+model Message {
+  id                String         @id @default(cuid())
+  accountId         String
+  templateId        String?
+  channel           MessageChannel
+  toAddress         String
+  status            MessageStatus  @default(QUEUED)
+  failureReason     String?
+  providerMessageId String?
+  payload           Json
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  account  Account          @relation(fields: [accountId], references: [id])
+  template MessageTemplate? @relation(fields: [templateId], references: [id])
+
+  @@index([accountId])
+  @@index([providerMessageId])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  accountId   String
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model Plan {
+  code                      PlanCode @id
+  name                      String
+  monthlyPriceKobo          Int
+  unitLimit                 Int?
+  prequalificationsPerMonth Int?
+  caretakerLimit            Int
+  whatsappEnabled           Boolean
+  reportsTier               String
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  accountId         String             @unique
+  planCode          PlanCode
+  status            SubscriptionStatus @default(ACTIVE)
+  activatedByUserId String?
+  activatedAt       DateTime           @default(now())
+  currentPeriodEnd  DateTime?
+
+  account     Account @relation(fields: [accountId], references: [id])
+  plan        Plan    @relation(fields: [planCode], references: [code])
+  activatedBy User?   @relation("SubscriptionActivatedBy", fields: [activatedByUserId], references: [id])
+}

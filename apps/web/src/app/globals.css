@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "@rae/ui/theme.css";
+
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+  }
+
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+@utility font-heading {
+  font-family: var(--font-heading);
+}
+
+@utility font-body {
+  font-family: var(--font-body);
+}
+
+@utility px-gutter {
+  padding-left: var(--spacing-gutter);
+  padding-right: var(--spacing-gutter);
+}
+
+@utility px-margin {
+  padding-left: var(--spacing-margin);
+  padding-right: var(--spacing-margin);
+}
+
+@utility rounded-control {
+  border-radius: var(--radius-control);
+}
+
+@utility rounded-panel {
+  border-radius: var(--radius-panel);
+}

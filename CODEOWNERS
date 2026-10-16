@@ -1,0 +1,6 @@
+# packages/domain and the API database schema need review from the lead engineer.
+# Replace @rent-at-ease/lead with the GitHub team once it exists.
+
+/apps/api/ @rent-at-ease/lead
+/apps/web/ @rent-at-ease/lead
+/packages/domain/ @rent-at-ease/lead

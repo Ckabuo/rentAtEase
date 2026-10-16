@@ -1,0 +1,9 @@
+node_modules
+dist
+.next
+out
+coverage
+package-lock.json
+apps/api/src/generated
+apps/api/prisma-client
+docs

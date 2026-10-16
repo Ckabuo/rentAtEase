@@ -1,0 +1,16 @@
+node_modules
+.turbo
+dist
+.next
+out
+coverage
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+.DS_Store
+apps/api/src/generated
+apps/api/prisma-client
+apps/api/.data
+docs
+AGENTS.md

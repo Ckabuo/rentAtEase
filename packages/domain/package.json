@@ -1,0 +1,32 @@
+{
+  "name": "@rae/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --watchman=false"
+  },
+  "devDependencies": {
+    "@rae/config": "0.0.0",
+    "@types/jest": "^30.0.0",
+    "eslint": "9.39.5",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.14",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3"
+  }
+}

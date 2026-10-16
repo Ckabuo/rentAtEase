@@ -1,0 +1,35 @@
+{
+  "name": "rent-at-ease",
+  "private": true,
+  "packageManager": "npm@11.17.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo watch dev --filter=@rae/web --filter=@rae/marketing --filter=@rae/api --filter=@rae/domain --filter=@rae/schemas --filter=@rae/ui --filter=@rae/api-client",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "npm run db:generate -w @rae/api",
+    "db:migrate": "npm run db:migrate -w @rae/api",
+    "db:seed": "npm run db:seed -w @rae/api",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "3.9.10",
+    "turbo": "^2.11.7",
+    "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "prisma@7.10.0": true,
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true,
+    "unrs-resolver@1.12.2": true
+  }
+}

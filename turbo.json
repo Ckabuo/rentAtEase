@@ -1,0 +1,69 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".env"],
+  "globalPassThroughEnv": [
+    "CI",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "JWT_ACCESS_SECRET",
+    "JWT_REFRESH_SECRET"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "out/**"],
+      "env": ["NODE_ENV", "NEXT_PUBLIC_API_URL"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "@rae/api#dev": {
+      "dependsOn": ["prisma:client", "^build"],
+      "persistent": true,
+      "interruptible": true
+    },
+    "@rae/web#dev": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "interruptible": true
+    },
+    "@rae/marketing#dev": {
+      "dependsOn": ["^build"],
+      "persistent": true,
+      "interruptible": true
+    },
+    "lint": {},
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "@rae/api#build": {
+      "dependsOn": ["prisma:client", "^build"],
+      "outputs": ["dist/**", "prisma-client/**", "src/generated/**"],
+      "env": ["NODE_ENV", "DATABASE_URL"]
+    },
+    "@rae/api#typecheck": {
+      "dependsOn": ["prisma:client", "^build"]
+    },
+    "@rae/api#lint": {
+      "dependsOn": ["prisma:client"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "prisma:client": {
+      "cache": false,
+      "outputs": ["prisma-client/**", "src/generated/**"],
+      "env": ["DATABASE_URL"]
+    },
+    "db:generate": {
+      "cache": false,
+      "outputs": ["src/generated/**"],
+      "env": ["DATABASE_URL"]
+    },
+    "db:migrate": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    }
+  }
+}
