@@ -8,7 +8,7 @@ import { AuthShell } from "@/components/layout/auth-shell";
 import { Button } from "@/components/ui/button";
 import { OtpInput } from "@/components/ui/otp-input";
 import { useResendCountdown } from "@/hooks/use-resend-countdown";
-import { api, ApiError, apiErrorMessage, writeToken } from "@/lib/api";
+import { api, ApiError, apiErrorMessage, readToken, writeToken } from "@/lib/api";
 import { clearSignInPending, markSignedIn, readSignInPending } from "@/lib/auth-session";
 import {
   applyOtpRequestResponse,
@@ -56,7 +56,9 @@ export default function VerifySignInPage() {
 
   useEffect(() => {
     if (!pending) {
-      router.replace("/sign-in");
+      if (!readToken()) {
+        router.replace("/sign-in");
+      }
       return;
     }
     if (!readOtpRequestMeta()) {

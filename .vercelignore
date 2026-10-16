@@ -1,0 +1,17 @@
+node_modules
+.git
+.turbo
+**/.next
+**/dist
+**/out
+**/coverage
+.env*
+!.env.example
+apps/api
+apps/marketing
+docs
+infra
+docker-compose.yml
+**/*.tsbuildinfo
+apps/api/.data
+.DS_Store
