@@ -37,7 +37,8 @@ describe("plan limits", () => {
     expect(canAddUnit("STARTER", 2)).toBe(true);
     expect(canAddUnit("STARTER", 3)).toBe(false);
     expect(canAddUnit("PRO", 100)).toBe(true);
-    expect(canAddCaretaker("STARTER", 0)).toBe(false);
+    expect(canAddCaretaker("STARTER", 0)).toBe(true);
+    expect(canAddCaretaker("STARTER", 1)).toBe(false);
     expect(canAddCaretaker("STANDARD", 1)).toBe(true);
     expect(canRunPrequalification("STARTER", 0)).toBe(true);
     expect(canRunPrequalification("STARTER", 1)).toBe(false);
