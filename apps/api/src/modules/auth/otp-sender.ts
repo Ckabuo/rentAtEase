@@ -121,12 +121,18 @@ export class OtpSender {
   }
 
   private async sendEmail(destination: string, code: string): Promise<void> {
+    const brevoKey = process.env.BREVO_API_KEY?.trim();
+    if (brevoKey) {
+      await this.sendBrevo(brevoKey, destination, code);
+      return;
+    }
+
     const host = process.env.SMTP_HOST?.trim();
     const from = process.env.SMTP_FROM?.trim();
     const port = Number(process.env.SMTP_PORT ?? "587");
     if (!host || !from || !Number.isFinite(port)) {
       throw new ServiceUnavailableException(
-        "Email codes need SMTP_HOST, SMTP_PORT and SMTP_FROM. Sign in with a phone number, or set OTP_DELIVERY=log for a local test.",
+        "Email codes need BREVO_API_KEY and SMTP_FROM, or SMTP_HOST, SMTP_PORT and SMTP_FROM. Sign in with a phone number, or set OTP_DELIVERY=log for a local test.",
       );
     }
     const transport = nodemailer.createTransport({
@@ -147,7 +153,66 @@ export class OtpSender {
       text: `Your Rent@Ease sign-in code is ${code}. It expires in 5 minutes.`,
     });
   }
+
+  private async sendBrevo(apiKey: string, destination: string, code: string): Promise<void> {
+    const sender = emailSenderFromEnv();
+    const text = `Your Rent@Ease sign-in code is ${code}. It expires in 5 minutes.`;
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender,
+        to: [{ email: destination }],
+        subject: "Your Rent@Ease sign-in code",
+        textContent: text,
+        htmlContent: `<p>${text}</p>`,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as BrevoSendResponse | null;
+    if (!response.ok) {
+      const detail = payload?.message ?? payload?.code;
+      throw new ServiceUnavailableException(
+        detail
+          ? `Brevo rejected the email (HTTP ${response.status}): ${detail}`
+          : `Brevo rejected the email (HTTP ${response.status}). Check BREVO_API_KEY and that the sender is verified in Brevo.`,
+      );
+    }
+  }
 }
+
+function emailSenderFromEnv(): { email: string; name?: string } {
+  const raw =
+    process.env.BREVO_SENDER_EMAIL?.trim() ||
+    process.env.SMTP_FROM?.trim() ||
+    "";
+  const parsed = parseSenderAddress(raw);
+  if (!parsed.email) {
+    throw new ServiceUnavailableException(
+      "Set SMTP_FROM or BREVO_SENDER_EMAIL to a verified sender address in Brevo.",
+    );
+  }
+  const name = process.env.BREVO_SENDER_NAME?.trim() || parsed.name || "Rent@Ease";
+  return { email: parsed.email, name };
+}
+
+/** Supports `you@domain.com` or `Rent@Ease <you@domain.com>`. */
+function parseSenderAddress(raw: string): { email: string; name?: string } {
+  const angle = raw.match(/^(.+?)\s*<([^>]+)>$/);
+  if (angle) {
+    return { name: angle[1]!.trim().replace(/^["']|["']$/g, ""), email: angle[2]!.trim() };
+  }
+  return { email: raw.trim() };
+}
+
+type BrevoSendResponse = {
+  message?: string;
+  code?: string;
+  messageId?: string;
+};
 
 type InfobipSmsResponse = {
   messages?: Array<{ status?: { groupName?: string; description?: string } }>;

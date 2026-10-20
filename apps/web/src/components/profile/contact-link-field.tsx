@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { OtpInput } from "@/components/ui/otp-input";
 import { useResendCountdown } from "@/hooks/use-resend-countdown";
 import type { AccountMe } from "@/lib/account-types";
-import { api, apiErrorMessage } from "@/lib/api";
+import { OtpResendCooldownMessage } from "@/components/auth/otp-resend-cooldown-message";
+import { api, apiErrorMessage, otpResendAvailableAt } from "@/lib/api";
 import { applyOtpRequestResponse, type OtpRequestResponse } from "@/lib/otp-request";
 
 type ContactLinkFieldProps = {
@@ -38,6 +39,7 @@ export function ContactLinkField({
   const [step, setStep] = useState<"idle" | "verify">("idle");
   const [pendingDestination, setPendingDestination] = useState("");
   const [resendAvailableAt, setResendAvailableAt] = useState<string | null>(null);
+  const [resendCooldownAt, setResendCooldownAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const resendSecondsLeft = useResendCountdown(resendAvailableAt);
 
@@ -53,6 +55,7 @@ export function ContactLinkField({
     }
     setLoading(true);
     onError("");
+    setResendCooldownAt(null);
     void (async () => {
       try {
         const result = await api<OtpRequestResponse>("/auth/otp/request", {
@@ -66,7 +69,13 @@ export function ContactLinkField({
         setCode("");
         if (result.devCode) sessionStorage.setItem("rae.signIn.devCode", result.devCode);
       } catch (caught) {
-        onError(apiErrorMessage(caught, "The code could not be sent."));
+        const cooldownAt = otpResendAvailableAt(caught);
+        if (cooldownAt) {
+          setResendAvailableAt(cooldownAt);
+          setResendCooldownAt(cooldownAt);
+        } else {
+          onError(apiErrorMessage(caught, "The code could not be sent."));
+        }
       } finally {
         setLoading(false);
       }
@@ -107,9 +116,16 @@ export function ContactLinkField({
         });
         applyOtpRequestResponse(result);
         setResendAvailableAt(result.resendAvailableAt);
+        setResendCooldownAt(null);
         if (result.devCode) sessionStorage.setItem("rae.signIn.devCode", result.devCode);
       } catch (caught) {
-        onError(apiErrorMessage(caught, "Could not resend the code."));
+        const cooldownAt = otpResendAvailableAt(caught);
+        if (cooldownAt) {
+          setResendAvailableAt(cooldownAt);
+          setResendCooldownAt(cooldownAt);
+        } else {
+          onError(apiErrorMessage(caught, "Could not resend the code."));
+        }
       } finally {
         setLoading(false);
       }
@@ -167,6 +183,12 @@ export function ContactLinkField({
           </p>
           <OtpInput value={code} onChange={setCode} disabled={loading} />
           <p className="text-xs text-muted">Code expires in {Math.floor(OTP_CODE_TTL_SECONDS / 60)} minutes.</p>
+          {resendCooldownAt ? (
+            <OtpResendCooldownMessage
+              resendAvailableAt={resendCooldownAt}
+              className="text-sm font-medium text-danger"
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button type="button" loading={loading} loadingLabel="Verifying…" disabled={code.length !== 6} onClick={verify}>
               Confirm

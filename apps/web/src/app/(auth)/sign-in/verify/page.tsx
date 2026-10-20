@@ -4,6 +4,7 @@ import { OTP_CODE_TTL_SECONDS } from "@rae/domain";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { OtpResendCooldownMessage } from "@/components/auth/otp-resend-cooldown-message";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { Button } from "@/components/ui/button";
 import { OtpInput } from "@/components/ui/otp-input";
@@ -51,6 +52,7 @@ export default function VerifySignInPage() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [otpMeta, setOtpMeta] = useState<OtpRequestMeta | null>(() => readOtpRequestMeta());
+  const [resendCooldownAt, setResendCooldownAt] = useState<string | null>(null);
   const devCode = useDevCode();
   const resendSecondsLeft = useResendCountdown(otpMeta?.resendAvailableAt ?? null);
 
@@ -83,6 +85,7 @@ export default function VerifySignInPage() {
         });
         applyOtpRequestResponse(result);
         setOtpMeta(readOtpRequestMeta());
+        setResendCooldownAt(null);
         setCode("");
       } catch (caught) {
         if (caught instanceof ApiError) {
@@ -92,9 +95,14 @@ export default function VerifySignInPage() {
               writeOtpRequestMeta({ ...current, resendAvailableAt: caught.resendAvailableAt });
               setOtpMeta(readOtpRequestMeta());
             }
+            setResendCooldownAt(caught.resendAvailableAt);
+            setError(null);
+          } else {
+            setResendCooldownAt(null);
+            setError(apiErrorMessage(caught, "The code could not be sent."));
           }
-          setError(apiErrorMessage(caught, "The code could not be sent."));
         } else {
+          setResendCooldownAt(null);
           setError("The code could not be sent.");
         }
       } finally {
@@ -183,7 +191,12 @@ export default function VerifySignInPage() {
             </button>
           </div>
 
-          {error ? (
+          {resendCooldownAt ? (
+            <OtpResendCooldownMessage
+              resendAvailableAt={resendCooldownAt}
+              className="mt-4 text-sm font-medium text-danger"
+            />
+          ) : error ? (
             <p className="mt-4 text-sm font-medium text-danger" role="alert">
               {error}
             </p>

@@ -21,6 +21,7 @@ export {
   NIGERIAN_PHONE_LENGTH,
   NIGERIAN_PHONE_PATTERN,
   normalizeNigerianPhoneInput,
+  toLocalNigerianPhone,
 } from "./phone";
 export { canAddCaretaker, canAddUnit, canRunPrequalification, PLANS } from "./plans";
 export type { PlanLimits } from "./plans";

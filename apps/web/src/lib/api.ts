@@ -60,9 +60,18 @@ function readApiErrorFields(record: Record<string, unknown>): {
 
 export const API_UNREACHABLE_MESSAGE = "We could not reach the server. Try again in a moment.";
 
+export function otpResendAvailableAt(caught: unknown): string | null {
+  if (caught instanceof ApiError && caught.resendAvailableAt) {
+    return caught.resendAvailableAt;
+  }
+  return null;
+}
+
 export function apiErrorMessage(caught: unknown, fallback: string): string {
   if (caught instanceof ApiError) {
-    return caught.status === 0 ? API_UNREACHABLE_MESSAGE : caught.message;
+    if (caught.status === 0) return API_UNREACHABLE_MESSAGE;
+    if (caught.resendAvailableAt) return fallback;
+    return caught.message;
   }
   return fallback;
 }

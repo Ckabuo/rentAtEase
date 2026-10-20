@@ -1,4 +1,4 @@
-import { NIGERIAN_PHONE_PATTERN } from "@rae/domain";
+import { NIGERIAN_PHONE_PATTERN, toLocalNigerianPhone } from "@rae/domain";
 import { z } from "zod";
 
 export const koboSchema = z.number().int();
@@ -13,7 +13,7 @@ const nigerianPhoneDigits = z
 export const phoneSchema = z
   .string()
   .trim()
-  .transform((value) => value.replace(/\D/g, ""))
+  .transform((value) => toLocalNigerianPhone(value))
   .pipe(nigerianPhoneDigits);
 
 export const optionalPhoneSchema = z
@@ -22,6 +22,6 @@ export const optionalPhoneSchema = z
   .optional()
   .transform((value) => {
     if (value === undefined || value === "") return undefined;
-    return value.replace(/\D/g, "");
+    return toLocalNigerianPhone(value);
   })
   .pipe(z.union([z.undefined(), nigerianPhoneDigits]));

@@ -1,5 +1,6 @@
 "use client";
 
+import { toLocalNigerianPhone } from "@rae/domain";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Logo } from "@/components/brand/logo";
@@ -34,11 +35,16 @@ const defaultProfile: OnboardingProfile = {
   whatsappReminders: "yes",
 };
 
+function isPhoneLike(value: string): boolean {
+  return /^\+?\d{10,15}$/.test(value.replace(/[\s()-]/g, ""));
+}
+
 function initialProfile(): OnboardingProfile {
   const saved = readOnboarding();
   const sessionName = readSignedInName();
   const base = saved ? { ...defaultProfile, ...saved } : { ...defaultProfile };
-  if (sessionName && !base.fullName && !sessionName.includes("@")) {
+  if (isPhoneLike(base.fullName)) base.fullName = "";
+  if (sessionName && !base.fullName && !sessionName.includes("@") && !isPhoneLike(sessionName)) {
     base.fullName = sessionName;
   }
   return base;
@@ -64,11 +70,15 @@ export default function OnboardingPage() {
     }));
   };
 
+  const nameIsPhone = isPhoneLike(profile.fullName);
+
   const finish = (completed: boolean) => {
-    const saved = { ...profile, ...(completed ? { completedAt: new Date().toISOString() } : {}) };
+    const typedName = profile.fullName.trim();
+    const name = typedName && !isPhoneLike(typedName) ? typedName : "Landlord";
+    const saved = { ...profile, fullName: name, ...(completed ? { completedAt: new Date().toISOString() } : {}) };
     const identifier = readSignedInName() ?? "";
     const email = identifier.includes("@") ? identifier : undefined;
-    const name = profile.fullName.trim() || (email ? "Landlord" : identifier) || "Landlord";
+    const phone = !email && isPhoneLike(identifier) ? toLocalNigerianPhone(identifier) : undefined;
     setSaving(true);
     void (async () => {
       try {
@@ -78,7 +88,7 @@ export default function OnboardingPage() {
             profile: {
               name,
               businessName: profile.businessName.trim() || "My properties",
-              phone: email ? undefined : identifier || undefined,
+              phone,
               email,
             },
             onboarding: saved,
@@ -98,7 +108,7 @@ export default function OnboardingPage() {
   };
 
   const next = () => {
-    if (step === 2 && !profile.fullName.trim()) return;
+    if (step === 2 && (!profile.fullName.trim() || isPhoneLike(profile.fullName))) return;
     if (step < totalSteps) {
       setStep((s) => s + 1);
       return;
@@ -152,7 +162,13 @@ export default function OnboardingPage() {
                     value={profile.fullName}
                     onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))}
                     autoComplete="name"
+                    placeholder="e.g. Adaeze Okafor"
                   />
+                  {nameIsPhone ? (
+                    <p className="mt-1.5 text-xs font-medium text-danger">
+                      Enter your name. Your phone number is already on this account.
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <Label htmlFor="businessName">Business or portfolio name</Label>
@@ -334,7 +350,7 @@ export default function OnboardingPage() {
               onClick={next}
               loading={saving}
               loadingLabel="Saving…"
-              disabled={step === 2 && !profile.fullName.trim()}
+              disabled={step === 2 && (!profile.fullName.trim() || nameIsPhone)}
               className="sm:min-w-[160px]"
             >
               {step === totalSteps ? "Go to dashboard" : "Continue"}

@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { isValidNigerianPhone } from "@rae/domain";
-import { api, apiErrorMessage } from "@/lib/api";
+import { OtpResendCooldownMessage } from "@/components/auth/otp-resend-cooldown-message";
+import { api, apiErrorMessage, otpResendAvailableAt } from "@/lib/api";
 import { setSignInPending, type SignInChannel } from "@/lib/auth-session";
 import { applyOtpRequestResponse, type OtpRequestResponse } from "@/lib/otp-request";
 
@@ -19,17 +20,20 @@ export default function SignInPage() {
   const [channel, setChannel] = useState<SignInChannel>("phone");
   const [identifier, setIdentifier] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [resendCooldownAt, setResendCooldownAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const selectChannel = (value: SignInChannel) => {
     setChannel(value);
     setIdentifier("");
     setError(null);
+    setResendCooldownAt(null);
   };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setResendCooldownAt(null);
     const trimmed = identifier.trim();
     if (!trimmed) {
       setError(channel === "phone" ? "Enter your Nigerian phone number." : "Enter your email address.");
@@ -58,8 +62,14 @@ export default function SignInPage() {
         setSignInPending(destination, channel);
         applyOtpRequestResponse(result);
         router.push("/sign-in/verify");
-      } catch (error) {
-        setError(apiErrorMessage(error, "The code could not be sent."));
+      } catch (caught) {
+        const cooldownAt = otpResendAvailableAt(caught);
+        if (cooldownAt) {
+          setResendCooldownAt(cooldownAt);
+          setError(null);
+        } else {
+          setError(apiErrorMessage(caught, "The code could not be sent."));
+        }
         setLoading(false);
       }
     })();
@@ -92,7 +102,12 @@ export default function SignInPage() {
           )}
         </div>
 
-        {error ? (
+        {resendCooldownAt ? (
+          <OtpResendCooldownMessage
+            resendAvailableAt={resendCooldownAt}
+            className="text-sm font-medium text-danger"
+          />
+        ) : error ? (
           <p className="text-sm font-medium text-danger" role="alert">
             {error}
           </p>
